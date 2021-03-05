@@ -30,15 +30,17 @@ when 12
 end
 
 point = 0
-next_frame_num = 0
-frames.each do |frame|
-  next_frame_num += 1
-  point += if frame[0] == 10 && next_frame_num != 10
-             10 + frames[next_frame_num].sum
-           elsif frame.sum == 10
-             10 + frames[next_frame_num][0]
-           else
-             frame.sum
-           end
+frames.each_with_index do |f, i|
+  point +=  if i <= 7 && f[0] == 10 && frames[i + 1][0] == 10 # ストライクが1~8フレームで連続で発生
+              20 +  frames[i + 2][0]
+            elsif i == 8 && f[0] == 10 # 9フレーム目でストライク
+              10 + frames[9][0..1].sum
+            elsif i <= 7 && f[0] == 10 # ストライクが発生した時
+              10 + frames[i + 1].sum
+            elsif i != 9 && f.sum == 10 # スペアが発生した時
+              10 + frames[i + 1][0]
+            else
+              f.sum
+            end
 end
 puts point
