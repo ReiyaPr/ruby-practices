@@ -5,19 +5,21 @@ require 'optparse'
 options = ARGV.getopts('a', 'l', 'r')
 
 class File
-  attr_reader :file_info, :permission, :file_type, :permission_8base, :sylink, :user_id, :group_id, :bytesize, :month, :day, :time, :name, :permission_data
+  attr_reader :file_info, :permission, :file_type, :permission_8base, :sylink, :user_id, :group_id, :bytesize, :month, :day, :time, :name, :size,
+              :permission_data, :block
 
   def initialize(file)
     @file_info = File.lstat(file)
     @file_type = file_info.ftype
+    @block = file_info.blocks
     @permission_8base = file_info.mode.to_s(8).slice(-3..-1)
     @sylink = file_info.nlink
     @user_id = Etc.getpwuid(file_info.uid).name
     @group_id = Etc.getgrgid(file_info.gid).name
     @bytesize = file_info.size
-    @month = file_info.atime.strftime('%m').to_i
-    @day = file_info.atime.strftime('%d').to_i
-    @time = file_info.atime.strftime('%H:%M')
+    @month = file_info.mtime.strftime('%m').to_i
+    @day = file_info.mtime.strftime('%d').to_i
+    @time = file_info.mtime.strftime('%H:%M')
     @name = file
   end
 
@@ -78,7 +80,17 @@ dir_file = if options['a'] && options['r']
              Dir.glob('*')
            end
 
+def file_size_total(files)
+  total = 0
+  files.each do |f|
+    file = File.new(f)
+    total += file.block
+  end
+  puts "total #{total}"
+end
+
 if options['l']
+  file_size_total(dir_file)
   dir_file.each do |f|
     file = File.new(f)
     puts file.make_info_array
