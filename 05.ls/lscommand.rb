@@ -39,7 +39,7 @@ class FileData
 
   private
 
-  def convert_file_type(file_type)
+  FILE_TYPES =
     {
       file: '-',
       directory: 'd',
@@ -48,13 +48,16 @@ class FileData
       fifo: 'f',
       link: 'l',
       socket: 's'
-    }[file_type.to_sym]
+    }.freeze
+
+  def convert_file_type(file_type)
+    FILE_TYPES[file_type.to_sym]
   end
 
   def convert_permission_code
-    octal_permission_code = file_info.mode.to_s(8).slice(-3..-1).chars
+    octal_permission_codes = file_info.mode.to_s(8).slice(-3..-1).chars
     permission_data = [convert_file_type(file_info.ftype)]
-    octal_permission_code.each do |code|
+    octal_permission_codes.each do |code|
       permission_data << PERMISSION_CODES[code]
     end
     permission_data.join
@@ -62,43 +65,45 @@ class FileData
 end
 
 COLUMN_COUNT = 3
-def main(options, directory_files)
+def main
+  options = ARGV.getopts('a', 'l', 'r')
+  directory_files = options['a'] ? Dir.glob('*', File::FNM_DOTMATCH) : Dir.glob('*')
+  directory_files.reverse! if options['r']
   if options['l']
-    file_blocksize_total(directory_files)
-    directory_files.each do |f|
-      file = FileData.new(f)
-      puts file.build_info_array
-    end
+    call_l_options(directory_files)
   else
-    slice_number = (directory_files.size / COLUMN_COUNT.to_f).ceil
-    sliced_files_array = directory_files.each_slice(slice_number).to_a
-    unless sliced_files_array.first.length == sliced_files_array.last.length
-      (sliced_files_array.first.length - sliced_files_array.last.length).times { sliced_files_array.last.push(' ') }
+    call_dafault_ls(directory_files)
+  end
+end
+
+private
+
+def call_l_options(files)
+  file_blocksize_total(files)
+  files.each do |f|
+    file = FileData.new(f)
+    puts file.build_info_array
+  end
+end
+
+def call_dafault_ls(files)
+  slice_number = (files.size / COLUMN_COUNT.to_f).ceil
+  sliced_files_array = files.each_slice(slice_number).to_a
+  unless sliced_files_array.first.length == sliced_files_array.last.length
+    (sliced_files_array.first.length - sliced_files_array.last.length).times { sliced_files_array.last.push(' ') }
+  end
+  sliced_files_array.transpose.each do |array|
+    array.each do |element|
+      print element.ljust(files.max_by(&:length).size + 7)
     end
-    max_files_length = directory_files.max_by(&:length).size
-    sliced_files_array.transpose.each do |array|
-      array.each do |element|
-        print element.ljust(max_files_length + 7)
-      end
-      print "\n"
-    end
+    print "\n"
   end
 end
 
 def file_blocksize_total(files)
-  total = 0
-  files.each do |f|
-    total += FileData.new(f).file_info.blocks
+  file_blocks = files.map do |f|
+    FileData.new(f).file_info.blocks
   end
-  puts "total #{total}"
+  puts "total #{file_blocks.sum}"
 end
-
-options = ARGV.getopts('a', 'l', 'r')
-directory_files = if options['a']
-                    Dir.glob('*', File::FNM_DOTMATCH)
-                  else
-                    Dir.glob('*')
-                  end
-directory_files.reverse! if options['r']
-
-main(options, directory_files)
+main
